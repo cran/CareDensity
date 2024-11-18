@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Robin Denz" />
+
+
+<title>Calculating the Care Density and Fragmented Care Density in R</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Calculating the Care Density and Fragmented
+Care Density in R</h1>
+<h4 class="author">Robin Denz</h4>
+
+
+
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p><code>CareDensity</code> package is a small R package that can be
+used mainly to calculate various measures of Care Density (Pollack et
+al. 2013, Engels et al. 2024) and Coordination of Care Indices (Jee
+&amp; Cabana 2006). In this vignette we will show some simple examples
+for each index and give some further explanations on what they mean.</p>
+</div>
+<div id="installation" class="section level1">
+<h1>Installation</h1>
+<p>This package is currently not available on CRAN, but a developmental
+version can be installed from github, using the following code:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;RobinDenz1/CareDensity&quot;</span>)</span></code></pre></div>
+</div>
+<div id="care-density" class="section level1">
+<h1>Care Density</h1>
+<div id="explanation" class="section level2">
+<h2>Explanation</h2>
+<p>The care density was first proposed by Pollack et al. (2013). It is a
+measure that is supposed to measure how closely the “care team” of a
+patient (the providers / medical doctors he is in contact with) are
+connected. As an indirect measure of how closely two providers work
+together, the number of patients shared by the providers is used.
+Therefore, in order to calculate the care density, the only information
+we need is which patient visited which provider. This information can be
+considered a “patient-sharing network” and has been used in multiple
+studies already (DuGoff et al. 2018, Landon et al. 2012).</p>
+<p>Formally, the care density is defined as:</p>
+<p><span class="math display">\[C_p = \frac{\sum_{i = 1}^m w_{p, j}}{n_p
+(n_p - 1)/2},\]</span></p>
+<p>with <span class="math inline">\(n_p\)</span> being the number of
+providers a patient has visited, <span class="math inline">\(m\)</span>
+defined as the number of all possible combinations of length two and
+<span class="math inline">\(w_{p, j}\)</span> being the number of
+patients that a pair of provider is sharing.</p>
+</div>
+<div id="example" class="section level2">
+<h2>Example</h2>
+<p>Suppose we have the following data about 5 patients (denoted by
+numbers) and the 3 providers they visited (denoted by uppercase
+letters):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(CareDensity)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">library</span>(igraph)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">library</span>(MatrixExtra)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">3431</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># some arbitrary patient-provider contact data</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">PatID=</span><span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;1&quot;</span>, <span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>, <span class="st">&quot;2&quot;</span>, <span class="st">&quot;3&quot;</span>, <span class="st">&quot;3&quot;</span>, <span class="st">&quot;4&quot;</span>, <span class="st">&quot;5&quot;</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>                   <span class="at">ArztID=</span><span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;C&quot;</span>, <span class="st">&quot;D&quot;</span>, <span class="st">&quot;A&quot;</span>, <span class="st">&quot;D&quot;</span>, <span class="st">&quot;A&quot;</span>, <span class="st">&quot;D&quot;</span>, <span class="st">&quot;D&quot;</span>, <span class="st">&quot;C&quot;</span>))</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>data</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt;   PatID ArztID</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; 1     1      A</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; 2     1      C</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; 3     1      D</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; 4     2      A</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; 5     2      D</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; 6     3      A</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; 7     3      D</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; 8     4      D</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt; 9     5      C</span></span></code></pre></div>
+<p>Since there are only connections between patients and providers and
+no connections between provider and providers or patients and patients,
+this can be considered a <em>bipartite</em> graph. We can visualize this
+graph using the <code>igraph</code> package:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># create graph</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="fu">graph_from_data_frame</span>(data, <span class="at">directed=</span><span class="cn">FALSE</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co"># add type</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">V</span>(g)<span class="sc">$</span>type <span class="ot">&lt;-</span> <span class="fu">bipartite_mapping</span>(g)<span class="sc">$</span>type</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co"># change some things for better plots</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="fu">V</span>(g)<span class="sc">$</span>color <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">V</span>(g)<span class="sc">$</span>type, <span class="st">&quot;salmon&quot;</span>, <span class="st">&quot;lightblue&quot;</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="fu">V</span>(g)<span class="sc">$</span>shape <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">V</span>(g)<span class="sc">$</span>type, <span class="st">&quot;square&quot;</span>, <span class="st">&quot;circle&quot;</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="fu">E</span>(g)<span class="sc">$</span>color <span class="ot">&lt;-</span> <span class="st">&quot;lightgray&quot;</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="fu">plot</span>(g, <span class="at">vertex.label.cex=</span><span class="fl">0.8</span>, <span class="at">vertex.label.color=</span><span class="st">&quot;black&quot;</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>Consider patient number 1 in this graph. We can see that this patient
+visited 3 different providers (<span class="math inline">\(A\)</span>,
+<span class="math inline">\(B\)</span> and <span class="math inline">\(C\)</span>). Therefore, <span class="math inline">\(n_p\)</span> is equal to 3 for this patient. But
+how about the weights? To gain a better understanding, we can
+<em>project</em> this graph into a provider-centric network, where only
+providers are included:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># project to provider mode</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>mat <span class="ot">&lt;-</span> <span class="fu">project_to_one_mode</span>(g, <span class="at">mode=</span><span class="st">&quot;cols&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># make it an igraph object again</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>g_provider <span class="ot">&lt;-</span> <span class="fu">graph_from_adjacency_matrix</span>(mat, <span class="at">mode=</span><span class="st">&quot;upper&quot;</span>, <span class="at">weighted=</span><span class="cn">TRUE</span>, <span class="at">diag=</span><span class="cn">FALSE</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co"># plot it</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="fu">plot</span>(g_provider, <span class="at">edge.label=</span><span class="fu">E</span>(g_provider)<span class="sc">$</span>weight, <span class="at">vertex.shape=</span><span class="st">&quot;square&quot;</span>,</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>     <span class="at">edge.color=</span><span class="st">&quot;black&quot;</span>, <span class="at">vertex.color=</span><span class="st">&quot;salmon&quot;</span>,</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>     <span class="at">vertex.label.cex=</span><span class="fl">0.8</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>In this graph we can see exactly which provider shared how many
+patients. So for patient 1 the care density would be:</p>
+<p><span class="math display">\[C_1 = \frac{1 + 1 + 3}{3 (3 - 1)/2}
+\approx 1.6667.\]</span></p>
+<p>While this is easy to calculate for a single patient in a small
+network, it is unfeasible to do this by hand in a large network and for
+multiple patients. The <code>care_density()</code> function can be used
+to automatically perform the step taken by hand above. All we need to do
+is supply the original <code>data</code> to it:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">care_density</span>(data)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt;   PatID sum_weights n care_density</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt; 1     1           5 3     1.666667</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; 2     2           3 2     3.000000</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; 3     3           3 2     3.000000</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; 4     4          NA 1           NA</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; 5     5          NA 1           NA</span></span></code></pre></div>
+<p>Here we can see that it gets the same result for patient 1 and also
+outputs the care density for all other patients. Since patient 4 and 5
+have only visited one provider, the care density is undefined for them
+and is thus denoted by <code>NA</code>.</p>
+</div>
+</div>
+<div id="fragmented-care-density" class="section level1">
+<h1>Fragmented Care Density</h1>
+<div id="explanation-1" class="section level2">
+<h2>Explanation</h2>
+<p>The care density as defined by Pollack et al. (2014) has recently
+been criticed by Engels et al. (2024). Their main point are that:</p>
+<ul>
+<li><strong>1.)</strong> The care density assumes that all relationships
+with the same amount of patients shared contribute equally to care
+coordination. It therefore does not consider how many patients a single
+provider has.</li>
+<li><strong>2.)</strong> The kind of relationship is also not considered
+in the classic care density statistic. For example, relationships
+between psychiatrists and general providers may be more or less
+important than general provider - general provider relationships.</li>
+<li><strong>3.)</strong> The importance of specific relationships may
+vary for different outcomes and or different patient population, which
+is therefore also not considered in the classic care density measure or
+Pollack et al. (2024).</li>
+</ul>
+<p>Engels et al. (2024) instead propose a modified version of the care
+density, which they call <em>fragmented care density</em>. The main idea
+is to stratify the sum term of the classic care density into multiple
+provider-relationship specific sums. <span class="math display">\[C_p =
+\sum_{j = 1}^{k} \frac{s_j}{n_p(n_p - 1) /2},\]</span></p>
+<p>with <span class="math inline">\(k\)</span> being defined as:</p>
+<p><span class="math display">\[k = {l \choose 2} + l,\]</span></p>
+<p>where <span class="math inline">\(l\)</span> is the number of
+provider types. For example, if we have three different provider types
+(psychiatrist, general provider, other), we would have 6 different
+relationships. It is easy to see that this formulation is equivalent to
+the one given by Pollack et al. (2013). The new proposal is to weight
+the different connection types differently. The <em>fragmented care
+density</em> as proposed by Engels et al. (2024) is then given by:</p>
+<p><span class="math display">\[FC_p = \sum_{j = 1}^{k} w_j
+\frac{s_j}{n_p(n_p - 1) /2}.\]</span></p>
+<p>where <span class="math inline">\(w_j\)</span> are some connection
+specific weights. Engels et al. (2024) propose to use regression models
+to estimate these weights. This is explained in a little more detail
+below.</p>
+</div>
+<div id="example-1" class="section level2">
+<h2>Example</h2>
+<p>Consider again the example dataset defined above. Suppose, however,
+that each provider is known to be either a general practitioner or a
+psychiatrist. The following <code>data.frame</code> defines the type of
+each provider in our example:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>d_type <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">ID=</span><span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;C&quot;</span>, <span class="st">&quot;D&quot;</span>),</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>                     <span class="at">Type=</span><span class="fu">c</span>(<span class="st">&quot;GP&quot;</span>, <span class="st">&quot;GP&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>))</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>d_type</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   ID         Type</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; 1  A           GP</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; 2  C           GP</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; 3  D Psychiatrist</span></span></code></pre></div>
+<p>Since there are two different kinds of providers, there are 3
+possible provider connections:</p>
+<ul>
+<li>GP - GP</li>
+<li>GP - Psychiatrist</li>
+<li>Psychiatrist - Psychiatrist</li>
+</ul>
+<p>We can safely omit the “Psychiatrist - GP” connection type, because
+we are always dealing with undirected connections, which means that the
+order of appearance does not make a difference. Now we can use the
+<code>fragmented_care_density()</code> function as follows:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">fragmented_care_density</span>(data, <span class="at">weights=</span><span class="cn">NULL</span>, <span class="at">type=</span>d_type, <span class="at">by_connection=</span><span class="cn">TRUE</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;   PatID        connection sum_weights n care_density</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; 1     1           GP - GP           1 3    0.3333333</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; 2     1 Psychiatrist - GP           4 3    1.3333333</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; 3     2 Psychiatrist - GP           3 2    3.0000000</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; 4     3 Psychiatrist - GP           3 2    3.0000000</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 5     4              &lt;NA&gt;          NA 1           NA</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 6     5              &lt;NA&gt;          NA 1           NA</span></span></code></pre></div>
+<p>By setting <code>by_connection</code> to <code>TRUE</code> we are
+telling the function to not directly calculate the fragmented care
+density for us, but to instead return the sum of the weights and care
+densities per connection type and patient. From this dataset we can see
+that only patient 1 has two different kinds of provider connections
+among his network. If we sum up the care densities of each patient over
+all his connection types, we get the classic care density.</p>
+<p>To calculate the actual fragmented care density for each patient, we
+need to supply <code>weights</code> for each connection type. We can do
+this by constructing a <code>data.frame</code> that looks like this:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>d_weights <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">from=</span><span class="fu">c</span>(<span class="st">&quot;GP&quot;</span>, <span class="st">&quot;GP&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>),</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>                        <span class="at">to=</span><span class="fu">c</span>(<span class="st">&quot;GP&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>                        <span class="at">weight=</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>))</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>d_weights</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt;           from           to weight</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; 1           GP           GP      1</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; 2           GP Psychiatrist      1</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; 3 Psychiatrist Psychiatrist      1</span></span></code></pre></div>
+<p>Here, we set all weights to 1. Therefore, if we now call the
+<code>fragmented_care_density()</code> function again (this time without
+using the <code>by_connection</code> argument):</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">fragmented_care_density</span>(data, <span class="at">weights=</span>d_weights, <span class="at">type=</span>d_type)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt;   PatID fragmented_care_density</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; 1     1                1.666667</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; 2     2                3.000000</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; 3     3                3.000000</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; 4     4                      NA</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; 5     5                      NA</span></span></code></pre></div>
+<p>we get the same results as we did before when using the simple
+<code>care_density()</code> function. However, if we use different
+weights for each connection type:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>d_weights <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">from=</span><span class="fu">c</span>(<span class="st">&quot;GP&quot;</span>, <span class="st">&quot;GP&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>),</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>                        <span class="at">to=</span><span class="fu">c</span>(<span class="st">&quot;GP&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>, <span class="st">&quot;Psychiatrist&quot;</span>),</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>                        <span class="at">weight=</span><span class="fu">c</span>(<span class="fl">1.1</span>, <span class="fl">0.5</span>, <span class="fl">1.3</span>))</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>d_weights</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;           from           to weight</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt; 1           GP           GP    1.1</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; 2           GP Psychiatrist    0.5</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; 3 Psychiatrist Psychiatrist    1.3</span></span></code></pre></div>
+<p>and call the function again:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">fragmented_care_density</span>(data, <span class="at">weights=</span>d_weights, <span class="at">type=</span>d_type)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt;   PatID fragmented_care_density</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt; 1     1                1.033333</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt; 2     2                1.500000</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt; 3     3                1.500000</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; 4     4                      NA</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt; 5     5                      NA</span></span></code></pre></div>
+<p>we obtain different results. Note that this never matters for
+patients 4 and 5, because they only have one provider connection,
+resulting in <code>NA</code> values no matter the weights.</p>
+</div>
+<div id="estimating-connection-specific-weights" class="section level2">
+<h2>Estimating Connection-Specific Weights</h2>
+<p>In the example above, we used arbitrary weights to showcase the
+functionality of the <code>fragmented_care_density()</code> function. In
+reality we would like to use sensible weights instead. Engels et
+al. (2024) recommend using regression models to obtain the relevant
+weights. In their article, they use a logistic regression model to
+predict a binary outcome, given the presence of a connection type and
+some covariates. We will illustrate this approach here without the use
+of other covariates.</p>
+<p>Suppose in addition to <code>data</code> (patient-provider
+relationships) and <code>type</code> (the provider types) we also have
+some patient level information on a binary outcome of interest <span class="math inline">\(Y\)</span>. Suppose this is that data:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>d_outcome <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">PatID=</span><span class="fu">c</span>(<span class="st">&quot;1&quot;</span>, <span class="st">&quot;2&quot;</span>, <span class="st">&quot;3&quot;</span>, <span class="st">&quot;4&quot;</span>, <span class="st">&quot;5&quot;</span>),</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>                        <span class="at">Y=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">0</span>))</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>d_outcome</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt;   PatID Y</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#&gt; 1     1 0</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt; 2     2 0</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt; 3     3 1</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; 4     4 1</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; 5     5 0</span></span></code></pre></div>
+<p>First, we again obtain data about the connection sums (<span class="math inline">\(s_j\)</span>) per connection type:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>d_consum <span class="ot">&lt;-</span> <span class="fu">fragmented_care_density</span>(data, <span class="at">weights=</span><span class="cn">NULL</span>, <span class="at">type=</span>d_type, <span class="at">by_connection=</span><span class="cn">TRUE</span>)</span></code></pre></div>
+<p>We then binarize these weights to 0 / 1. If at least one connection
+is present, it is considered a 1, otherwise it is a 0:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>d_consum<span class="sc">$</span>sum_weights <span class="ot">&lt;-</span> <span class="fu">fifelse</span>(d_consum<span class="sc">$</span>sum_weights <span class="sc">&gt;</span> <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>)</span></code></pre></div>
+<p>Next, we transform this information into the long-format using the
+<code>dcast()</code> function of the <code>data.table</code>
+package:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>d_consum <span class="ot">&lt;-</span> <span class="fu">dcast</span>(<span class="fu">as.data.table</span>(d_consum), PatID <span class="sc">~</span> connection,</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>                  <span class="at">value.var=</span><span class="st">&quot;sum_weights&quot;</span>, <span class="at">fill=</span><span class="dv">0</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>d_consum<span class="sc">$</span><span class="st">`</span><span class="at">NA</span><span class="st">`</span> <span class="ot">&lt;-</span> <span class="cn">NULL</span></span></code></pre></div>
+<p>Afterwards we can merge the outcome data to this dataset:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>d_outcome <span class="ot">&lt;-</span> <span class="fu">merge</span>(d_consum, d_outcome, <span class="at">by=</span><span class="st">&quot;PatID&quot;</span>)</span></code></pre></div>
+<p>Now we can finally fit the regression model, using the outcome as the
+dependent variable and the connection-type dummies as independent
+variables:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">glm</span>(Y <span class="sc">~</span> <span class="st">`</span><span class="at">GP - GP</span><span class="st">`</span> <span class="sc">+</span> <span class="st">`</span><span class="at">Psychiatrist - GP</span><span class="st">`</span>, <span class="at">data=</span>d_outcome, <span class="at">family=</span><span class="st">&quot;binomial&quot;</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">summary</span>(mod)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="co">#&gt; glm(formula = Y ~ `GP - GP` + `Psychiatrist - GP`, family = &quot;binomial&quot;, </span></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#&gt;     data = d_outcome)</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="co">#&gt; Deviance Residuals: </span></span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="co">#&gt;        1         2         3         4         5  </span></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="co">#&gt; -0.00013  -1.17741   1.17741   1.17741  -1.17741  </span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="co">#&gt; Coefficients:</span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="co">#&gt;                       Estimate Std. Error z value Pr(&gt;|z|)</span></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co">#&gt; (Intercept)         -2.066e-16  1.414e+00   0.000    1.000</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt; `GP - GP`           -1.857e+01  6.523e+03  -0.003    0.998</span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co">#&gt; `Psychiatrist - GP`  4.441e-16  2.000e+00   0.000    1.000</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="co">#&gt; (Dispersion parameter for binomial family taken to be 1)</span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a><span class="co">#&gt;     Null deviance: 6.7301  on 4  degrees of freedom</span></span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="co">#&gt; Residual deviance: 5.5452  on 2  degrees of freedom</span></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co">#&gt; AIC: 11.545</span></span>
+<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a><span class="co">#&gt; Number of Fisher Scoring iterations: 17</span></span></code></pre></div>
+<p>The estimated coefficients associated with each connection type may
+now be used as weights. Note that in this example the weights don’t make
+any sense due to (1) the very low sample size, (2) the very small
+network and (3) because all data is completely made up with no
+underlying true relationships. The general procedure, however, should
+work with real data.</p>
+</div>
+</div>
+<div id="literature" class="section level1">
+<h1>Literature</h1>
+<p>DuGoff, Eva H., Sara Fernandes-Taylor, Gary E. Weissman, Joseph H.
+Huntley, and Craig Evan Pollack. (2018). “A Scoping Review of
+Patient-Sharing Network Studies Using Administrative Data”.
+Translational Behavioral Medicine 8 (4), pp. 598-625.</p>
+<p>Engels, Alexander, Claudia Konnopka, Espen Henken, Martin Härter, and
+Hans-Helmut König. (2024). “A Flexible Approach to Measure Care
+Coordination Based on Patient-Sharing Networks”. BMC Medical Research
+Methodology 24 (1), pp. 1-12.</p>
+<p>Jee, Sandra H., and Michael D. Cabana. (2006). “Indices for
+Continuity of Care: A Systematic Review of the Literature”. Medical Care
+Research and Review 63 (2), pp. 158-188.</p>
+<p>Landon, Bruce E., Nancy L. Keating, Michael L. Barnett, Jukka-Pekka
+Onnela, Sudeshna Paul, A. James O’Malley, Thomas Keegan, and Nicholas A.
+Christakis. (2012). “Variation in Patient-Sharing Networks of Physicians
+Across the United States”. JAMA 308 (3): pp. 265-273.</p>
+<p>Pollack, Craig Evan, Gary E. Weissman, Klaus W. Lemke, Peter S.
+Hussey, and Jonathan P. Weiner. (2013). “Patient Sharing Among
+Physicians and Costs of Care: A Network Analytic Approach to Care
+Coordination Using Claims Data”. Journal of General Internal Medicine 28
+(3), pp. 459-465.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
